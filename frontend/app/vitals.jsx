@@ -8,18 +8,20 @@ import NavBar from '../components/NavBar';
 import Header from '../components/Header';
 import AIFloatingButton from '../components/AIFloatingButton';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
-import Svg, { Path, Line, Circle, G, Defs, Filter, FeGaussianBlur, FeComposite } from 'react-native-svg';
+import { BarChart, LineChart, PieChart, PopulationPyramid, RadarChart } from "react-native-gifted-charts";
 
 
 export default function VitalsScreen() {
   // Create animated value for scroll position
   const scrollY = useRef(new Animated.Value(0)).current;
 
-    // Day selection
-    const dayScrollRef = useRef(null);
-    const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-    const today = "Wednesday"; // Hardcoded for demo, in real app would be determined dynamically
-    const [selectedDay, setSelectedDay] = useState(today);
+  const AverageSleepdata=[ {value:50}, {value:80}, {value:90}, {value:70} ]
+
+  // Day selection
+  const dayScrollRef = useRef(null);
+  const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+  const today = "Wednesday"; // Hardcoded for demo, in real app would be determined dynamically
+  const [selectedDay, setSelectedDay] = useState(today);
 
   return (
     <LinearGradient
@@ -54,7 +56,7 @@ export default function VitalsScreen() {
                 offset: 100 * index,
                 index,
               })}
-              renderItem={({item}) => (
+              renderItem={({ item }) => (
                 <Pressable 
                   style={[
                     styles.dayButton,
@@ -81,7 +83,20 @@ export default function VitalsScreen() {
               keyExtractor={(item) => item}
             />
           </View>
-          </Animated.ScrollView>
+
+          {/* Average sleep score chart */}
+          <View style={styles.chartContainer}>
+            <Text style={styles.chartTitle}>Bar Chart</Text>
+            <BarChart data={AverageSleepdata} />
+
+            <Text style={styles.chartTitle}>Line Chart</Text>
+            <LineChart data={AverageSleepdata} />
+
+            <Text style={styles.chartTitle}>Pie Chart</Text>
+            <PieChart data={AverageSleepdata} />
+
+          </View>
+        </Animated.ScrollView>
         <AIFloatingButton scrollY={scrollY} />
         <NavBar currentScreen="vitals" />
       </View>
@@ -152,5 +167,14 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 10,
     fontFamily: 'ManropeBold',
+  },
+  chartContainer: {
+    marginBottom: 20,
+  },
+  chartTitle: {
+    fontFamily: 'ManropeBold',
+    fontSize: 18,
+    color: 'white',
+    marginBottom: 10,
   },
 }); 
