@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Image, Animated, TouchableOpacity, Pressable, FlatList } from 'react-native';
-import { Link } from 'expo-router';
+import { View, Text, StyleSheet, Image, Animated, TouchableOpacity, Pressable, FlatList, Modal, TextInput, ScrollView, SafeAreaView } from 'react-native';
+import { Link, router, useLocalSearchParams } from 'expo-router';
 import { Colors } from '../constants/Colors';
 import { Layouts, Typography } from '../constants/Styles';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,6 +9,9 @@ import Header from '../components/Header';
 import AIFloatingButton from '../components/AIFloatingButton';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import Svg, { Path, Line, Circle, G, Defs, Filter, FeGaussianBlur, FeComposite } from 'react-native-svg';
+import DateButton from '../components/DateButton';
+import CalendarModal from '../components/CalendarModal';
+import MealEntryModal from '../components/MealEntryModal';
 
 // Improved chart with a single continuous line
 const WeightChart = ({ data }) => {
@@ -172,8 +175,67 @@ const WeightChart = ({ data }) => {
 };
 
 export default function NutritionScreen() {
-  // Create animated value for scroll position
+  const params = useLocalSearchParams();
   const scrollY = useRef(new Animated.Value(0)).current;
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [showMealEntry, setShowMealEntry] = useState(false);
+  const [meals, setMeals] = useState([
+    { id: 1, type: 'Breakfast', calories: 531, time: '10:45 AM' },
+    { id: 2, type: 'Lunch', calories: 1024, time: '03:45 PM' }
+  ]);
+
+  // Handle receiving new meal data from mealScreen
+  useEffect(() => {
+    if (params.newMeal) {
+      try {
+        const newMeal = JSON.parse(params.newMeal);
+        const isUpdate = params.update === 'true';
+        
+        if (isUpdate) {
+          // Update existing meal
+          setMeals(prevMeals => 
+            prevMeals.map(meal => 
+              meal.id === newMeal.id ? newMeal : meal
+            )
+          );
+        } else {
+          // Add new meal
+          setMeals(prevMeals => [...prevMeals, newMeal]);
+        }
+        
+        // Clear params after handling
+        router.setParams({});
+      } catch (error) {
+        console.error('Error parsing meal data:', error);
+      }
+    }
+  }, [params.newMeal]);
+
+  // Example marked dates - you can customize this based on your data
+  const markedDates = {
+    '2024-03-15': {
+      dots: [
+        { color: '#FF6B6B' },
+        { color: '#FF6B6B' },
+        { color: '#FF6B6B' }
+      ]
+    },
+    '2024-03-16': {
+      dots: [
+        { color: '#FF6B6B' },
+        { color: '#FF6B6B' }
+      ]
+    }
+  };
+
+  const handleDateSelect = (date) => {
+    setSelectedDate(date);
+  };
+
+  const handleAddMeal = (meal) => {
+    setMeals([...meals, meal]);
+  };
   
   // Day selection
   const dayScrollRef = useRef(null);
@@ -264,12 +326,6 @@ export default function NutritionScreen() {
     lastTime: '10:45 AM'
   };
   
-  // Sample meal data
-  const meals = [
-    { id: 1, type: 'Breakfast', calories: 531, time: '10:45 AM' },
-    { id: 2, type: 'Lunch', calories: 1024, time: '03:45 PM' }
-  ];
-  
   // Sample weight data for chart
   const weightData = [
     { x: '2022', y: 82 },
@@ -306,46 +362,9 @@ export default function NutritionScreen() {
           )}
           scrollEventThrottle={16}
         >
-          {/* Day selector */}
+          {/* Date Selector */}
           <View style={styles.dateContainer}>
-            <FlatList
-              ref={dayScrollRef}
-              data={days}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.dayList}
-              initialScrollIndex={days.indexOf(today)}
-              getItemLayout={(data, index) => ({
-                length: 100, 
-                offset: 100 * index,
-                index,
-              })}
-              renderItem={({item}) => (
-                <Pressable 
-                  style={[
-                    styles.dayButton,
-                    selectedDay === item && styles.selectedDayButton
-                  ]}
-                  onPress={() => setSelectedDay(item)}
-                >
-                  <Text 
-                    style={[
-                      styles.dayButtonText,
-                      selectedDay === item && styles.selectedDayText
-                    ]}
-                  >
-                    {item}
-                  </Text>
-                  {selectedDay === item && <View style={styles.dayIndicator} />}
-                  {item === today && (
-                    <View style={styles.todayBadge}>
-                      <Text style={styles.todayText}>Today</Text>
-                    </View>
-                  )}
-                </Pressable>
-              )}
-              keyExtractor={(item) => item}
-            />
+            <DateButton onPress={() => setShowCalendar(true)} />
           </View>
           
           {/* Nutrients Card with enhanced labeling */}
@@ -415,7 +434,7 @@ export default function NutritionScreen() {
             </View>
             
             {/* Calories */}
-            <View style={[styles.nutrientRow, { marginTop: 16 }]}>
+            <View style={styles.nutrientRow}>
               <View style={styles.nutrientLabelContainer}>
                 <View style={[styles.nutrientIndicator, { backgroundColor: nutrientData.calories.color }]} />
                 <Text style={styles.nutrientLabel}>Calories</Text>
@@ -433,6 +452,40 @@ export default function NutritionScreen() {
                 ]} 
               />
             </View>
+            
+            {/* Divider for meals section */}
+            <View style={styles.sectionDivider} />
+            
+            {/* Meals section with add button */}
+            <View style={styles.inCardSectionHeader}>
+              <Text style={styles.inCardSectionTitle}>Meals</Text>
+              <TouchableOpacity style={styles.addButton} onPress={() => setShowMealEntry(true)}>
+                <Ionicons name="add" size={24} color="white" />
+              </TouchableOpacity>
+            </View>
+            
+            {/* Meals list */}
+            {meals.length > 0 ? (
+              meals.map(meal => (
+                <View key={meal.id} style={styles.mealCard}>
+                  <View style={styles.mealInfo}>
+                    <Text style={styles.mealType}>{meal.type}</Text>
+                    <View style={styles.mealTimestamp}>
+                      <Ionicons name="time-outline" size={16} color="rgba(255,255,255,0.6)" />
+                      <Text style={styles.timestampText}>{meal.time}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.mealCalories}>{meal.calories} Cal</Text>
+                </View>
+              ))
+            ) : (
+              <View style={styles.emptyMealsContainer}>
+                <Text style={styles.emptyMealsText}>No meals recorded for this day</Text>
+                <TouchableOpacity onPress={() => setShowMealEntry(true)}>
+                  <Text style={styles.addMealText}>Add a meal</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
           
           {/* Water Tracking */}
@@ -530,28 +583,6 @@ export default function NutritionScreen() {
             </View>
           </View>
           
-          {/* Meals section with add button */}
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Meals</Text>
-            <TouchableOpacity style={styles.addButton} onPress={() => alert('Add food')}>
-              <Ionicons name="add" size={24} color="white" />
-            </TouchableOpacity>
-          </View>
-          
-          {/* Meals list */}
-          {meals.map(meal => (
-            <View key={meal.id} style={styles.mealCard}>
-              <View style={styles.mealInfo}>
-                <Text style={styles.mealType}>{meal.type}</Text>
-                <View style={styles.mealTimestamp}>
-                  <Ionicons name="time-outline" size={16} color="rgba(255,255,255,0.6)" />
-                  <Text style={styles.timestampText}>{meal.time}</Text>
-                </View>
-              </View>
-              <Text style={styles.mealCalories}>{meal.calories} Cal</Text>
-            </View>
-          ))}
-          
           {/* Weight Chart - Use the custom component */}
           <View style={styles.chartCard}>
             <Text style={styles.chartTitle}>Weight</Text>
@@ -561,6 +592,21 @@ export default function NutritionScreen() {
         
         <AIFloatingButton scrollY={scrollY} />
         <NavBar currentScreen="nutrition" />
+
+        <CalendarModal
+          visible={showCalendar}
+          onClose={() => setShowCalendar(false)}
+          selectedDate={selectedDate}
+          onDateSelect={handleDateSelect}
+          markedDates={markedDates}
+        />
+        
+        <MealEntryModal
+          visible={showMealEntry}
+          onClose={() => setShowMealEntry(false)}
+          onSave={handleAddMeal}
+          selectedDate={selectedDate}
+        />
       </View>
     </LinearGradient>
   );
@@ -797,23 +843,23 @@ const styles = StyleSheet.create({
   timestampText: {
     fontSize: 12,
     color: 'rgba(255,255,255,0.6)',
+    fontFamily: 'ManropeLight',
     marginLeft: 4,
-    fontFamily: 'Manrope',
   },
   mealCard: {
-    backgroundColor: 'rgba(12, 12, 12, 0.6)',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.07)',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 8,
   },
   mealInfo: {
     flex: 1,
   },
   mealType: {
-    fontSize: 16,
+    fontSize: 14,
     color: 'white',
     fontFamily: 'ManropeSemiBold',
     marginBottom: 4,
@@ -823,7 +869,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   mealCalories: {
-    fontSize: 16,
+    fontSize: 14,
     color: 'white',
     fontFamily: 'ManropeSemiBold',
   },
@@ -875,14 +921,19 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontFamily: 'Manrope',
   },
-  sectionHeader: {
+  sectionDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    marginVertical: 16,
+  },
+  inCardSectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
   },
-  sectionTitle: {
-    fontSize: 18,
+  inCardSectionTitle: {
+    fontSize: 16,
     color: 'white',
     fontFamily: 'ManropeSemiBold',
   },
@@ -947,39 +998,8 @@ const styles = StyleSheet.create({
     fontFamily: 'ManropeMedium',
   },
   dateContainer: {
-    marginBottom: 15,
-  },
-  dayList: {
-    paddingVertical: 10,
-    paddingHorizontal: 10,
-  },
-  dayButton: {
-    paddingHorizontal: 0,
-    paddingVertical: 8,
+    marginBottom: 24,
     alignItems: 'center',
-    position: 'relative',
-    width: 100,
-  },
-  selectedDayButton: {
-    // This is for styling the selected day button
-  },
-  dayButtonText: {
-    fontFamily: 'ManropeMedium',
-    fontSize: 18,
-    color: 'rgba(255, 255, 255, 0.6)',
-  },
-  selectedDayText: {
-    color: 'white',
-    fontFamily: 'ManropeBold',
-  },
-  dayIndicator: {
-    position: 'absolute',
-    bottom: 0,
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: 'white',
-    marginTop: 4,
   },
   todayBadge: {
     position: 'absolute',
@@ -993,5 +1013,260 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 10,
     fontFamily: 'ManropeBold',
+  },
+  // Meal Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  mealModalContainer: {
+    width: '90%',
+    height: '70%',
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  mealModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(0,0,0,0.3)',
+  },
+  mealModalTitle: {
+    fontSize: 20,
+    color: 'white',
+    fontFamily: 'ManropeSemiBold',
+  },
+  closeButton: {
+    padding: 5,
+  },
+  mealContent: {
+    flex: 1,
+    padding: 16,
+  },
+  mealTypeContainer: {
+    marginBottom: 16,
+  },
+  mealTypeLabel: {
+    fontSize: 16,
+    color: 'white',
+    fontFamily: 'ManropeSemiBold',
+    marginBottom: 10,
+  },
+  mealTypeButtonsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  mealTypeButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 12,
+    minWidth: '22%',
+    alignItems: 'center',
+  },
+  mealTypeButtonActive: {
+    backgroundColor: 'rgba(195, 43, 43, 0.7)',
+  },
+  mealTypeButtonText: {
+    color: 'rgba(255,255,255,0.8)',
+    fontFamily: 'ManropeMedium',
+    fontSize: 14,
+  },
+  mealTypeButtonTextActive: {
+    color: 'white',
+    fontFamily: 'ManropeSemiBold',
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    marginBottom: 16,
+    height: 44,
+  },
+  searchInput: {
+    flex: 1,
+    height: 44,
+    color: 'white',
+    marginLeft: 10,
+    fontFamily: 'Manrope',
+    fontSize: 16,
+  },
+  foodResultsContainer: {
+    flex: 1,
+    marginBottom: 16,
+  },
+  foodDatabaseLabel: {
+    fontSize: 16,
+    color: 'white',
+    fontFamily: 'ManropeSemiBold',
+    marginBottom: 10,
+  },
+  foodList: {
+    height: 200,
+  },
+  foodItemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.08)',
+  },
+  foodItemName: {
+    color: 'white',
+    fontSize: 16,
+    fontFamily: 'ManropeSemiBold',
+  },
+  foodItemInfo: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 12,
+    fontFamily: 'Manrope',
+    marginTop: 2,
+  },
+  addFoodButton: {
+    padding: 4,
+  },
+  addFoodButtonInner: {
+    backgroundColor: 'rgba(195, 43, 43, 0.7)',
+    borderRadius: 50,
+    width: 30,
+    height: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  selectedFoodsSection: {
+    marginTop: 16,
+  },
+  selectedFoodsLabel: {
+    fontSize: 16,
+    color: 'white',
+    fontFamily: 'ManropeSemiBold',
+    marginBottom: 10,
+  },
+  selectedFoodItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.08)',
+  },
+  selectedFoodInfo: {
+    flex: 1,
+  },
+  selectedFoodName: {
+    color: 'white',
+    fontSize: 16,
+    fontFamily: 'ManropeSemiBold',
+  },
+  selectedFoodCalories: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 12,
+    fontFamily: 'Manrope',
+    marginTop: 2,
+  },
+  quantityControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  quantityButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginHorizontal: 4,
+  },
+  quantityText: {
+    color: 'white',
+    fontFamily: 'ManropeMedium',
+    marginHorizontal: 6,
+    fontSize: 14,
+  },
+  removeButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,107,107,0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 10,
+  },
+  macroSummaryContainer: {
+    backgroundColor: 'rgba(195, 43, 43, 0.15)',
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  macroSummaryTitle: {
+    color: 'white',
+    fontSize: 16,
+    fontFamily: 'ManropeSemiBold',
+    marginBottom: 10,
+  },
+  macroRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginVertical: 4,
+  },
+  macroLabel: {
+    color: 'rgba(255,255,255,0.8)',
+    fontFamily: 'ManropeMedium',
+    fontSize: 14,
+  },
+  macroValue: {
+    color: 'white',
+    fontFamily: 'ManropeSemiBold',
+    fontSize: 14,
+  },
+  saveMealButton: {
+    backgroundColor: 'rgba(195, 43, 43, 0.8)',
+    padding: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saveMealButtonDisabled: {
+    backgroundColor: 'rgba(195, 43, 43, 0.4)',
+  },
+  saveMealButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontFamily: 'ManropeSemiBold',
+  },
+  emptyMealsContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.07)',
+    borderRadius: 10,
+    padding: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyMealsText: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.6)',
+    fontFamily: 'ManropeLight',
+    marginBottom: 8,
+  },
+  addMealText: {
+    fontSize: 14,
+    color: '#C32B2B',
+    fontFamily: 'ManropeSemiBold',
+  },
+  modalSafeArea: {
+    flex: 1,
+    width: '100%',
+  },
+  modalScrollView: {
+    maxHeight: '82%', // Give room for the save button at bottom
   },
 }); 

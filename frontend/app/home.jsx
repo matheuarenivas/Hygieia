@@ -8,17 +8,35 @@ import { FontAwesome5, Ionicons, MaterialCommunityIcons } from '@expo/vector-ico
 import NavBar from '../components/NavBar';
 import Header from '../components/Header';
 import AIFloatingButton from '../components/AIFloatingButton';
+import DateButton from '../components/DateButton';
+import CalendarModal from '../components/CalendarModal';
 
 export default function HomeScreen() {
   const router = useRouter();
-  const dayScrollRef = useRef(null);
-  const [selectedDay, setSelectedDay] = useState('Wednesday'); // Assuming Wednesday is today
-  
-  // Create animated value for scroll position
   const scrollY = useRef(new Animated.Value(0)).current;
-  
-  const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-  const today = "Wednesday"; // Hardcoded for demo, in real app would be determined dynamically
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [showCalendar, setShowCalendar] = useState(false);
+
+  // Example marked dates - you can customize this based on your data
+  const markedDates = {
+    '2024-03-15': {
+      dots: [
+        { color: '#FF6B6B' },
+        { color: '#FF6B6B' },
+        { color: '#FF6B6B' }
+      ]
+    },
+    '2024-03-16': {
+      dots: [
+        { color: '#FF6B6B' },
+        { color: '#FF6B6B' }
+      ]
+    }
+  };
+
+  const handleDateSelect = (date) => {
+    setSelectedDate(date);
+  };
   
   const navigateToNutrition = () => {
     router.push('/nutrition');
@@ -47,45 +65,9 @@ export default function HomeScreen() {
           )}
           scrollEventThrottle={16}
         >
+          {/* Date Selector */}
           <View style={styles.dateContainer}>
-            <FlatList
-              ref={dayScrollRef}
-              data={days}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.dayList}
-              initialScrollIndex={days.indexOf(today)}
-              getItemLayout={(data, index) => ({
-                length: 100, 
-                offset: 100 * index,
-                index,
-              })}
-              renderItem={({item}) => (
-                <Pressable 
-                  style={[
-                    styles.dayButton,
-                    selectedDay === item && styles.selectedDayButton
-                  ]}
-                  onPress={() => setSelectedDay(item)}
-                >
-                  <Text 
-                    style={[
-                      styles.dayButtonText,
-                      selectedDay === item && styles.selectedDayText
-                    ]}
-                  >
-                    {item}
-                  </Text>
-                  {selectedDay === item && <View style={styles.dayIndicator} />}
-                  {item === today && (
-                    <View style={styles.todayBadge}>
-                      <Text style={styles.todayText}>Today</Text>
-                    </View>
-                  )}
-                </Pressable>
-              )}
-              keyExtractor={(item) => item}
-            />
+            <DateButton onPress={() => setShowCalendar(true)} />
           </View>
           
           <View style={styles.cardsContainer}>
@@ -94,7 +76,7 @@ export default function HomeScreen() {
               <View style={[styles.card, styles.purpleCard]}>
                 <View style={styles.cardHeader}>
                   <View style={styles.iconContainer}>
-                    <Ionicons name="airplane" size={18} color="#fff" />
+                    <Ionicons name="heart" size={18} color="#fff" />
                   </View>
                   <View>
                     <Text style={styles.cardTitle}>Readiness</Text>
@@ -107,6 +89,9 @@ export default function HomeScreen() {
                 
                 <Text style={styles.bigMetric}>37°C</Text>
                 <Text style={styles.metricLabel}>Body temperature</Text>
+
+                <Text style={styles.bigMetric}>65<Text style={styles.unit}>bpm</Text></Text>
+                <Text style={styles.metricLabel}>Heart rate</Text>
               </View>
               
               {/* Sleep Card */}
@@ -179,6 +164,14 @@ export default function HomeScreen() {
         
         <AIFloatingButton scrollY={scrollY} />
         <NavBar currentScreen="home" />
+
+        <CalendarModal
+          visible={showCalendar}
+          onClose={() => setShowCalendar(false)}
+          selectedDate={selectedDate}
+          onDateSelect={handleDateSelect}
+          markedDates={markedDates}
+        />
       </View>
     </LinearGradient>
   );
@@ -190,63 +183,19 @@ const styles = StyleSheet.create({
   },
   mainContainer: {
     flex: 1,
-    paddingBottom: 90, // NavBar height
+    paddingBottom: 90,
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
     paddingHorizontal: 16,
-    paddingTop: 120, // Space for header
+    paddingTop: 120,
     paddingBottom: 20,
   },
   dateContainer: {
-    marginBottom: 15,
-  },
-  dayList: {
-    paddingVertical: 10,
-    paddingHorizontal: 10,
-  },
-  dayButton: {
-    paddingHorizontal: 0,
-    paddingVertical: 8,
+    marginBottom: 24,
     alignItems: 'center',
-    position: 'relative',
-    width: 100,
-  },
-  selectedDayButton: {
-    // This is for styling the selected day button
-  },
-  dayButtonText: {
-    fontFamily: 'ManropeMedium',
-    fontSize: 18,
-    color: 'rgba(255, 255, 255, 0.6)',
-  },
-  selectedDayText: {
-    color: 'white',
-    fontFamily: 'ManropeBold',
-  },
-  dayIndicator: {
-    position: 'absolute',
-    bottom: 0,
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: 'white',
-    marginTop: 4,
-  },
-  todayBadge: {
-    position: 'absolute',
-    top: -6,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)', //clear white
-    borderRadius: 10,
-  },
-  todayText: {
-    color: 'white',
-    fontSize: 10,
-    fontFamily: 'ManropeBold',
   },
   cardsContainer: {
     flex: 1,
